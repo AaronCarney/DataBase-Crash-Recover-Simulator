@@ -1,1 +1,14 @@
 2024-11-16 15:46:11,705 - main - INFO - Logging is set up and working correctly.
+2024-11-16 15:51:13,273 - main - INFO - Logging is set up and working correctly.
+2024-11-16 15:51:13,273 - LockManager - INFO - LockManager initialized.
+2024-11-16 15:51:13,273 - LockManager - INFO - Transaction 1 acquired shared lock on data1.
+2024-11-16 15:51:13,273 - LockManager - WARNING - Transaction 2 failed to acquire exclusive lock on data1.
+2024-11-16 15:51:13,273 - LockManager - INFO - Transaction 1 released lock on data1.
+2024-11-16 15:51:13,274 - LockManager - DEBUG - Transaction 1 locks released.
+2024-11-16 15:51:13,274 - LockManager - INFO - Checking for deadlocks.
+2024-11-16 15:51:13,274 - RecoveryManager - INFO - RecoveryManager initialized.
+2024-11-16 15:51:13,274 - RecoveryManager - INFO - Log entry added: [1, 'S']
+2024-11-16 15:51:13,274 - RecoveryManager - INFO - Log entry added: [1, 'F', 0, 0, 1]
+2024-11-16 15:51:13,275 - RecoveryManager - INFO - Applying WAL logs to recover database state.
+2024-11-16 15:51:13,275 - RecoveryManager - DEBUG - Processing log entry: 1,S
+2024-11-16 15:51:13,275 - RecoveryManager - DEBUG - Processing log entry: 1,F,0,0,1
