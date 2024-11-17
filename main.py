@@ -6,6 +6,41 @@ from transaction_manager import TransactionManager
 import argparse
 
 
+def initialize_modules():
+    """
+    Initialize the database, logs, and all necessary modules for the simulation.
+    Returns:
+        Tuple of initialized modules: (database_handler, recovery_mgr, lock_mgr, transaction_mgr)
+    """
+    logger = get_logger("Initializer")
+    logger.info("Starting module initialization...")
+
+    # Initialize logging
+    setup_logging()
+    logger.info("Logging system initialized.")
+
+    # Initialize the database handler
+    database_handler = DBHandler()
+    database_handler.read_database()  # Load database from file or initialize to defaults
+    logger.info("Database handler initialized and database state loaded.")
+
+    # Initialize the recovery manager and apply logs
+    recovery_mgr = RecoveryManager()
+    recovery_mgr.apply_logs(database_handler)  # Ensure database state is consistent
+    logger.info("Recovery manager initialized and logs applied.")
+
+    # Initialize the lock manager
+    lock_mgr = LockManager()
+    logger.info("Lock manager initialized.")
+
+    # Initialize the transaction manager
+    transaction_mgr = TransactionManager(lock_mgr, recovery_mgr, database_handler)
+    logger.info("Transaction manager initialized.")
+
+    logger.info("Module initialization complete.")
+    return database_handler, recovery_mgr, lock_mgr, transaction_mgr
+
+
 def parse_arguments():
     """
     Parse command-line arguments for the simulation.
@@ -96,3 +131,9 @@ if __name__ == "__main__":
     transaction_manager.rollback_transaction(2)
 
     main_logger.info("Simulation successfully initialized.")
+
+    # Initialize modules
+    db_handler, recovery_manager, lock_manager, transaction_manager = initialize_modules()
+
+    # Placeholder for further simulation logic
+    print("Modules successfully initialized.")
