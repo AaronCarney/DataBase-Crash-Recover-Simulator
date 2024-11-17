@@ -64,12 +64,6 @@ class RecoveryManager:
         return log_entries
 
     def apply_logs(self):
-        """
-        Processes the recovery log file to restore the database state.
-        Ensures that the recovered state is persisted to disk.
-        """
-        if not self.db_handler:
-            raise ValueError("DBHandler must be set before applying logs.")
         if not os.path.exists(self.log_file):
             self.logger.warning(f"Log file {self.log_file} does not exist. No logs to apply.")
             return
@@ -78,15 +72,13 @@ class RecoveryManager:
             for line in f:
                 parts = line.strip().split(",")
 
-                # Validate log entry format
                 if len(parts) < 2 or parts[1] not in ["S", "F", "C", "R"]:
                     self.logger.error(f"Invalid log entry: {line.strip()}")
                     continue
 
-                # Process "F" (failed operation) entries
                 if parts[1] == "F" and len(parts) == 5:
                     data_id, old_value, new_value = map(int, parts[2:])
-                    self.db_handler.update_buffer(data_id, new_value)
+                    self.db_handler.update_buffer(data_id, new_value)  # Ensure this operates on db_handler
                     self.logger.info(f"Applied update to data_id {data_id}: {old_value} -> {new_value}")
 
         self.db_handler.write_database()

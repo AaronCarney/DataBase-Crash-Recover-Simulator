@@ -6,8 +6,8 @@ from recovery_manager import RecoveryManager
 
 class TestRecoveryManager(unittest.TestCase):
     def setUp(self):
-        self.recovery_manager = RecoveryManager()
-        self.db_handler = DBHandler()  # Initialize the DBHandler instance
+        self.db_handler = DBHandler()
+        self.recovery_manager = RecoveryManager(self.db_handler)
         if os.path.exists(self.recovery_manager.log_file):
             os.remove(self.recovery_manager.log_file)
 
@@ -42,8 +42,8 @@ class TestRecoveryManager(unittest.TestCase):
         self.recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
         self.db_handler.read_database()
         self.recovery_manager.apply_logs()
-        self.assertEqual(self.db_handler.buffer[0], 1)
-        self.assertEqual(self.db_handler.buffer[1], 1)
+        self.assertEqual(self.db_handler.buffer[0], 1, "Log replay did not update buffer[0].")
+        self.assertEqual(self.db_handler.buffer[1], 1, "Log replay did not update buffer[1].")
 
     def test_apply_logs_with_valid_data(self):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)

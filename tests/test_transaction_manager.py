@@ -9,8 +9,8 @@ from recovery_manager import RecoveryManager
 class TestTransactionManager(unittest.TestCase):
     def setUp(self):
         self.lock_manager = LockManager()
-        self.recovery_manager = RecoveryManager()
-        self.db_handler = DBHandler()  # Ensure DBHandler is initialized
+        self.db_handler = DBHandler()
+        self.recovery_manager = RecoveryManager(self.db_handler)
         self.transaction_manager = TransactionManager(self.lock_manager, self.recovery_manager, self.db_handler)
 
     def test_start_transaction(self):
@@ -44,7 +44,7 @@ class TestTransactionManager(unittest.TestCase):
         self.transaction_manager.start_transaction(1)
         self.transaction_manager.start_transaction(2)
         self.transaction_manager.submit_operation(1, 0, "F", old_value=0, new_value=1)
-        self.transaction_manager.submit_operation(2, "data2", "F", old_value=0, new_value=1)
+        self.transaction_manager.submit_operation(2, 1, "F", old_value=0, new_value=1)
         self.assertEqual(len(self.transaction_manager.transactions[1]["operations"]), 1)
         self.assertEqual(len(self.transaction_manager.transactions[2]["operations"]), 1)
 

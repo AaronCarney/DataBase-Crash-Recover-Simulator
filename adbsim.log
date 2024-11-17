@@ -6341,3 +6341,33 @@
 2024-11-17 13:57:32,605 - RecoveryManager - INFO - Log entry added: [1, 'C']
 2024-11-17 13:57:32,605 - LockManager - WARNING - Transaction 1 has no locks to release.
 2024-11-17 13:57:32,605 - TransactionManager - INFO - Transaction 1 committed.
+2024-11-17 14:14:09,068 - Initializer - INFO - Logging system initialized.
+2024-11-17 14:14:09,068 - DBHandler - INFO - DBHandler initialized with database file db.txt.
+2024-11-17 14:14:09,068 - DBHandler - INFO - Database loaded from file.
+2024-11-17 14:14:09,068 - Initializer - INFO - Database handler initialized and database state loaded.
+2024-11-17 14:14:09,069 - DBHandler - INFO - DBHandler initialized with database file test_db.txt.
+2024-11-17 14:14:09,069 - Initializer - INFO - Starting module initialization...
+2024-11-17 14:14:09,073 - Initializer - INFO - Logging system initialized.
+2024-11-17 14:14:09,073 - DBHandler - INFO - DBHandler initialized with database file db.txt.
+2024-11-17 14:14:09,073 - DBHandler - INFO - Database loaded from file.
+2024-11-17 14:14:09,073 - Initializer - INFO - Database handler initialized and database state loaded.
+2024-11-17 14:14:09,074 - DBHandler - INFO - DBHandler initialized with database file test_db.txt.
+2024-11-17 14:14:09,074 - Initializer - INFO - Starting module initialization...
+2024-11-17 14:14:09,074 - Initializer - INFO - Logging system initialized.
+2024-11-17 14:14:09,074 - DBHandler - INFO - DBHandler initialized with database file db.txt.
+2024-11-17 14:14:09,075 - DBHandler - INFO - Database loaded from file.
+2024-11-17 14:14:09,075 - Initializer - INFO - Database handler initialized and database state loaded.
+2024-11-17 14:14:09,075 - DBHandler - INFO - DBHandler initialized with database file test_db.txt.
+2024-11-17 14:14:09,076 - Initializer - INFO - Starting module initialization...
+2024-11-17 14:14:09,076 - Initializer - INFO - Logging system initialized.
+2024-11-17 14:14:09,076 - DBHandler - INFO - DBHandler initialized with database file db.txt.
+2024-11-17 14:14:09,076 - DBHandler - INFO - Database loaded from file.
+2024-11-17 14:14:09,076 - Initializer - INFO - Database handler initialized and database state loaded.
+2024-11-17 14:14:09,076 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,077 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,077 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,078 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,078 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,078 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,080 - LockManager - INFO - LockManager initialized.
+2024-11-17 14:14:09,081 - LockManager - INFO - LockManager initialized.

@@ -28,8 +28,8 @@ def initialize_modules() -> Tuple[DBHandler, RecoveryManager, LockManager, Trans
     logger.info("Database handler initialized and database state loaded.")
 
     # Initialize the recovery manager and apply logs
-    recovery_mgr = RecoveryManager()
-    recovery_mgr.apply_logs(database_handler)  # Ensure database state is consistent
+    recovery_mgr = RecoveryManager(database_handler)
+    recovery_mgr.apply_logs()
     logger.info("Recovery manager initialized and logs applied.")
 
     # Initialize the lock manager

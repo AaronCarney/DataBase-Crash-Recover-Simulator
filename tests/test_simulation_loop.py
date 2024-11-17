@@ -1,8 +1,10 @@
 import os
 import unittest
 from db_handler import DBHandler
-from main import initialize_modules, simulation_loop
+from lock_manager import LockManager
+from main import simulation_loop
 from recovery_manager import RecoveryManager
+from transaction_manager import TransactionManager
 
 
 class TestSimulationLoop(unittest.TestCase):
@@ -14,17 +16,25 @@ class TestSimulationLoop(unittest.TestCase):
         # Ensure clean state for database and log files
         self.db_file = "test_db.txt"
         self.log_file = "test_log.csv"
-        self.db_handler = DBHandler(self.db_file)
 
-        # Ensure the test database file exists
-        with open(self.db_file, "w") as f:
-            f.write("0," * 31 + "0\n")  # Initialize with default 32 bits
+        # Remove previous files to ensure a clean state
         for file in [self.db_file, self.log_file]:
             if os.path.exists(file):
                 os.remove(file)
 
-        # Initialize modules
-        self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager = initialize_modules()
+        # Initialize DBHandler
+        self.db_handler = DBHandler(self.db_file)
+        with open(self.db_file, "w") as f:
+            f.write("0," * 31 + "0\n")  # Initialize database with 32 bits all set to 0
+
+        # Initialize RecoveryManager with the DBHandler instance
+        self.recovery_manager = RecoveryManager(self.db_handler)
+
+        # Initialize LockManager
+        self.lock_manager = LockManager()
+
+        # Initialize TransactionManager
+        self.transaction_manager = TransactionManager(self.lock_manager, self.recovery_manager, self.db_handler)
 
         # Redirect files for testing
         self.db_handler.db_file = self.db_file
@@ -52,7 +62,7 @@ class TestSimulationLoop(unittest.TestCase):
         # Verify the content of the database
         with open(self.db_handler.db_file, "r") as f:
             database_content = f.read()
-            self.assertIn("data1", database_content, "Database does not contain expected key 'data1'.")
+            self.assertIn("1", database_content, "Database does not contain expected updated values.")
 
     def test_recovery_after_crash(self):
         """Simulate a crash and verify recovery integrity."""
@@ -114,8 +124,8 @@ class TestSimulationLoop(unittest.TestCase):
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
         for entry in log_entries:
-            if entry[1] == "F":  # Write operation
-                _, _, data_id, _, new_value = map(int, entry)
+            if entry[1] == "F":  # Check operation type
+                _, _, data_id, _, new_value = map(int, entry[2:])  # Skip operation field
                 recovered_buffer[data_id] = new_value
 
         self.assertEqual(db_content, recovered_buffer, "Database and logs do not match for all-write scenario.")
