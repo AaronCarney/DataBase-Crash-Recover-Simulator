@@ -2,6 +2,7 @@ import unittest
 import os
 from db_handler import DBHandler
 
+
 class TestDBHandler(unittest.TestCase):
     def setUp(self):
         self.db_handler = DBHandler()

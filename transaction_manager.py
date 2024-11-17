@@ -1,12 +1,12 @@
 from logging_config import get_logger
 
+
 class TransactionManager:
     def __init__(self, lock_manager, recovery_manager, db_handler):
-        """Initialize the TransactionManager with required components."""
         self.lock_manager = lock_manager
         self.recovery_manager = recovery_manager
         self.db_handler = db_handler
-        self.transactions = {}  # {transaction_id: {"state": "active", "operations": []}}
+        self.transactions = {}
         self.logger = get_logger(self.__class__.__name__)
         self.logger.info("TransactionManager initialized.")
 

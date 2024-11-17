@@ -1,8 +1,6 @@
 import unittest
-from db_handler import DBHandler
 from lock_manager import LockManager
-from recovery_manager import RecoveryManager
-from transaction_manager import TransactionManager
+
 
 class TestLockManager(unittest.TestCase):
     def setUp(self):

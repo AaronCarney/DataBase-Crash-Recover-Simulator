@@ -2,9 +2,11 @@ import csv
 from logging_config import get_logger
 import os
 
+
 class RecoveryManager:
-    def __init__(self, log_file="log.csv"):
+    def __init__(self, db_handler, log_file="log.csv"):
         """Initialize the RecoveryManager."""
+        self.db_handler = db_handler
         self.logger = get_logger(self.__class__.__name__)
         self.log_file = log_file
         self.write_count = 0  # Track the number of writes since the last flush
@@ -61,25 +63,35 @@ class RecoveryManager:
         self.logger.info(f"Read {len(log_entries)} log entries from the log file.")
         return log_entries
 
-    def apply_logs(self, db_handler):
+    def apply_logs(self):
         """
-        Apply the WAL log to recover the database state.
-        - db_handler: Instance of DBHandler to apply changes to.
+        Processes the recovery log file to restore the database state.
+        Ensures that the recovered state is persisted to disk.
         """
-        log_entries = self.read_log()
-        for entry in log_entries:
-            transaction_id, operation, *data = entry
-            if operation == "F":  # Write operation
-                data_id, old_value, new_value = map(int, data)
-                db_handler.buffer[data_id] = new_value
-                self.logger.info(f"Applied write log: {entry}")
-            elif operation in ["S", "R", "C"]:
-                # Start, rollback, or commit logs do not affect database directly
-                self.logger.info(f"Processed {operation} log for transaction {transaction_id}: {entry}")
+        if not self.db_handler:
+            raise ValueError("DBHandler must be set before applying logs.")
+        if not os.path.exists(self.log_file):
+            self.logger.warning(f"Log file {self.log_file} does not exist. No logs to apply.")
+            return
 
-        # Ensure the recovered state is flushed to disk
-        db_handler.write_database()
+        with open(self.log_file, "r") as f:
+            for line in f:
+                parts = line.strip().split(",")
+
+                # Validate log entry format
+                if len(parts) < 2 or parts[1] not in ["S", "F", "C", "R"]:
+                    self.logger.error(f"Invalid log entry: {line.strip()}")
+                    continue
+
+                # Process "F" (failed operation) entries
+                if parts[1] == "F" and len(parts) == 5:
+                    data_id, old_value, new_value = map(int, parts[2:])
+                    self.db_handler.update_buffer(data_id, new_value)
+                    self.logger.info(f"Applied update to data_id {data_id}: {old_value} -> {new_value}")
+
+        self.db_handler.write_database()
         self.logger.info("Database state recovered and flushed to disk.")
+
 
 # Example usage
 if __name__ == "__main__":
@@ -98,4 +110,4 @@ if __name__ == "__main__":
 
     # Recover database state
     db_handler.read_database()
-    recovery_manager.apply_logs(db_handler)
+    recovery_manager.apply_logs()

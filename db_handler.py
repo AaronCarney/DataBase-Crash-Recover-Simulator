@@ -33,8 +33,8 @@ class DBHandler:
                 else:
                     self.buffer = list(map(int, line.split(",")))
             self.logger.info("Database loaded from file.")
-        except (FileNotFoundError, ValueError) as e:
-            self.logger.error(f"Error reading database file: {e}. Initializing with default values.")
+        except (FileNotFoundError, ValueError):
+            self.logger.error("Invalid or missing database file. Initializing with default values.")
             self.buffer = [0] * 32
 
     def write_database(self):
@@ -43,7 +43,7 @@ class DBHandler:
         This function is explicitly called after a recovery or periodic flush.
         """
         try:
-            with open(self.db_file, "w") as f:
+            with open(self.db_file, "w", encoding="utf-8") as f:
                 f.write(",".join(map(str, self.buffer)) + "\n")
             self.logger.info("Database written to file.")
             self.write_count = 0  # Reset write count after a flush

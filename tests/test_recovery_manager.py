@@ -26,11 +26,11 @@ class TestRecoveryManager(unittest.TestCase):
     def test_missing_log_file(self):
         if os.path.exists(self.recovery_manager.log_file):
             os.remove(self.recovery_manager.log_file)
-        self.recovery_manager.apply_logs(self.db_handler)  # Ensure no exceptions are raised
+        self.recovery_manager.apply_logs()  # Ensure no exceptions are raised
 
     def test_recovery_replay(self):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
-        self.recovery_manager.apply_logs(self.db_handler)  # Apply logs to simulate recovery
+        self.recovery_manager.apply_logs()  # Apply logs to simulate recovery
         self.assertEqual(self.db_handler.buffer[0], 1)
 
     def test_replay_logs_after_crash(self):
@@ -41,9 +41,14 @@ class TestRecoveryManager(unittest.TestCase):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
         self.recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
         self.db_handler.read_database()
-        self.recovery_manager.apply_logs(self.db_handler)
+        self.recovery_manager.apply_logs()
         self.assertEqual(self.db_handler.buffer[0], 1)
         self.assertEqual(self.db_handler.buffer[1], 1)
+
+    def test_apply_logs_with_valid_data(self):
+        self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
+        self.recovery_manager.apply_logs()
+        self.assertEqual(self.db_handler.buffer[0], 1)
 
 
 if __name__ == "__main__":

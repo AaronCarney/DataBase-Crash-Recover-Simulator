@@ -104,7 +104,7 @@ def parse_arguments():
 def simulation_loop(
         db_handler, recovery_manager, lock_manager, transaction_manager,
         max_cycles, max_transaction_size, prob_start_transaction, prob_write,
-        prob_rollback, lock_timeout
+        prob_rollback
 ):
     """
     Run the simulation loop for managing transactions, locks, and recovery.
@@ -117,9 +117,8 @@ def simulation_loop(
         max_cycles: Total number of cycles for the simulation.
         max_transaction_size: Maximum operations per transaction.
         prob_start_transaction: Probability of starting a new transaction.
-        prob_write: Probability that an operation is a write.
+        prob_write: Probability that an operation is Write.
         prob_rollback: Probability that an operation is a rollback.
-        lock_timeout: Maximum wait time for transactions before timeout.
     """
     logger = get_logger("SimulationLoop")
     logger.info("Starting simulation loop...")
@@ -175,7 +174,7 @@ def simulation_loop(
                     transaction_data["is_blocked"] = True
 
         # Resolve deadlocks with lock_timeout
-        lock_manager.check_deadlocks(lock_timeout)
+        lock_manager.check_deadlocks()
 
         # Flush logs and database after every 25 writes
         if recovery_manager.write_count >= 25:
@@ -209,13 +208,12 @@ if __name__ == "__main__":
     start_probability = simulation_args.start_prob
     write_probability = simulation_args.write_prob
     rollback_probability = simulation_args.rollback_prob
-    timeout_duration = simulation_args.timeout
 
     # Start simulation loop with updated argument names
     simulation_loop(
         db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance,
         total_cycles, transaction_size, start_probability, write_probability,
-        rollback_probability, timeout_duration
+        rollback_probability
     )
 
     main_logger.info("Simulation successfully completed.")

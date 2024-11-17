@@ -2,6 +2,7 @@ from logging_config import get_logger
 from collections import defaultdict
 import time
 
+
 class LockManager:
     def __init__(self):
         """Initialize the LockManager and its data structures."""
@@ -65,17 +66,9 @@ class LockManager:
                 del self.locks[data_id]
                 self.logger.info(f"Lock on {data_id} has been released.")
 
-            # Check if there are pending requests
-            if data_id in self.lock_queue:
-                next_transaction_id, next_lock_type = self.lock_queue[data_id].pop(0)
-                if next_lock_type == "shared":
-                    self.locks[data_id] = ("shared", {next_transaction_id})
-                else:
-                    self.locks[data_id] = ("exclusive", {next_transaction_id})
-                self.locked_data_by_transaction[next_transaction_id].add(data_id)
-                self.logger.info(f"Transaction {next_transaction_id} acquired {next_lock_type} lock on {data_id} from queue.")
-
-                if not self.lock_queue[data_id]:
+                # Clear all pending requests for this data_id
+                if data_id in self.lock_queue:
+                    self.logger.info(f"Clearing lock queue for {data_id} due to lock release.")
                     del self.lock_queue[data_id]
 
         del self.locked_data_by_transaction[transaction_id]
@@ -94,6 +87,7 @@ class LockManager:
                 self.release_locks(transaction_id)
 
         self.logger.info("Deadlock check completed.")
+
 
 # Example usage
 if __name__ == "__main__":
