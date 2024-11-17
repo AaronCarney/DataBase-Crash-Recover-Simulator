@@ -1,11 +1,13 @@
 import unittest
 import os
+from db_handler import DBHandler
 from recovery_manager import RecoveryManager
+
 
 class TestRecoveryManager(unittest.TestCase):
     def setUp(self):
         self.recovery_manager = RecoveryManager()
-        # Ensure a clean slate for the log file
+        self.db_handler = DBHandler()  # Initialize the DBHandler instance
         if os.path.exists(self.recovery_manager.log_file):
             os.remove(self.recovery_manager.log_file)
 
@@ -24,12 +26,25 @@ class TestRecoveryManager(unittest.TestCase):
     def test_missing_log_file(self):
         if os.path.exists(self.recovery_manager.log_file):
             os.remove(self.recovery_manager.log_file)
-        self.recovery_manager.apply_logs()  # Should not raise an error
+        self.recovery_manager.apply_logs(self.db_handler)  # Ensure no exceptions are raised
 
     def test_recovery_replay(self):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
-        self.recovery_manager.apply_logs()
-        # Future integration test to verify replay of logs on DBHandler
+        self.recovery_manager.apply_logs(self.db_handler)  # Apply logs to simulate recovery
+        self.assertEqual(self.db_handler.buffer[0], 1)
+
+    def test_replay_logs_after_crash(self):
+        """
+        Verify database state consistency after applying recovery logs.
+        """
+        self.db_handler = DBHandler()  # Initialize the DBHandler instance for use in this test
+        self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
+        self.recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
+        self.db_handler.read_database()
+        self.recovery_manager.apply_logs(self.db_handler)
+        self.assertEqual(self.db_handler.buffer[0], 1)
+        self.assertEqual(self.db_handler.buffer[1], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
