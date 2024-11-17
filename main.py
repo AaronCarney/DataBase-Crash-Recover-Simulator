@@ -4,9 +4,12 @@ from logging_config import setup_logging, get_logger
 from recovery_manager import RecoveryManager
 from transaction_manager import TransactionManager
 import argparse
+import random
+from time import sleep
+from typing import Tuple
 
 
-def initialize_modules():
+def initialize_modules() -> Tuple[DBHandler, RecoveryManager, LockManager, TransactionManager]:
     """
     Initialize the database, logs, and all necessary modules for the simulation.
     Returns:
@@ -98,42 +101,122 @@ def parse_arguments():
     return parsed_args
 
 
+def simulation_loop(
+        db_handler, recovery_manager, lock_manager, transaction_manager,
+        max_cycles, max_transaction_size, prob_start_transaction, prob_write,
+        prob_rollback, lock_timeout
+):
+    """
+    Run the simulation loop for managing transactions, locks, and recovery.
+
+    Args:
+        db_handler: Instance of the DBHandler class.
+        recovery_manager: Instance of the RecoveryManager class.
+        lock_manager: Instance of the LockManager class.
+        transaction_manager: Instance of the TransactionManager class.
+        max_cycles: Total number of cycles for the simulation.
+        max_transaction_size: Maximum operations per transaction.
+        prob_start_transaction: Probability of starting a new transaction.
+        prob_write: Probability that an operation is a write.
+        prob_rollback: Probability that an operation is a rollback.
+        lock_timeout: Maximum wait time for transactions before timeout.
+    """
+    logger = get_logger("SimulationLoop")
+    logger.info("Starting simulation loop...")
+
+    active_transactions = {}
+    current_cycle = 0
+
+    while current_cycle < max_cycles:
+        logger.info(f"Cycle {current_cycle + 1} begins.")
+
+        # Start a new transaction based on prob_start_transaction
+        if random.random() <= prob_start_transaction:
+            transaction_id = len(active_transactions) + 1
+            transaction_manager.start_transaction(transaction_id)
+            active_transactions[transaction_id] = {
+                "operations_count": 0,
+                "is_blocked": False,
+                "start_time": current_cycle
+            }
+            logger.info(f"Started transaction {transaction_id}.")
+
+        # Process active transactions
+        for transaction_id, transaction_data in list(active_transactions.items()):
+            if transaction_data["is_blocked"]:
+                logger.debug(f"Transaction {transaction_id} is blocked, skipping.")
+                continue
+
+            if transaction_data["operations_count"] >= max_transaction_size:
+                transaction_manager.commit_transaction(transaction_id)
+                logger.info(f"Committed transaction {transaction_id}.")
+                del active_transactions[transaction_id]
+                continue
+
+            operation_type = (
+                "rollback" if random.random() <= prob_rollback
+                else "write" if random.random() <= prob_write
+                else "noop"
+            )
+
+            if operation_type == "rollback":
+                transaction_manager.rollback_transaction(transaction_id)
+                logger.info(f"Transaction {transaction_id} rolled back.")
+                del active_transactions[transaction_id]
+            elif operation_type == "write":
+                data_id = random.randint(0, 31)
+                old_value = db_handler.buffer[data_id]
+                new_value = 1 if old_value == 0 else 0
+                success = transaction_manager.submit_operation(transaction_id, data_id, "F", old_value, new_value)
+                if success:
+                    transaction_data["operations_count"] += 1
+                    logger.info(f"Transaction {transaction_id} wrote to data {data_id}.")
+                else:
+                    transaction_data["is_blocked"] = True
+
+        # Resolve deadlocks with lock_timeout
+        lock_manager.check_deadlocks(lock_timeout)
+
+        # Flush logs and database after every 25 writes
+        if recovery_manager.write_count >= 25:
+            recovery_manager.flush_logs()
+            db_handler.write_database()
+
+        # Increment cycle count
+        current_cycle += 1
+        sleep(0.1)  # Simulate delay
+
+    logger.info("Simulation loop complete. Final database state:")
+    print(db_handler.buffer)
+
+
 if __name__ == "__main__":
+    # Set up logging
     setup_logging()
-    main_logger = get_logger("main")  # Use a distinct name for the main logger
+    main_logger = get_logger("main")
     main_logger.info("Logging is set up and working correctly.")
 
     # Parse command-line arguments
-    simulation_args = parse_arguments()  # Use a distinct name for the arguments
-
-    # Initialize components
-    db_handler = DBHandler()
-    db_handler.read_database()
-    db_handler.buffer[0] = 1
-    db_handler.write_database()
-
-    lock_manager = LockManager()
-    lock_manager.acquire_lock(1, "data1", "shared")
-    lock_manager.acquire_lock(2, "data1", "exclusive")
-    lock_manager.release_locks(1)
-    lock_manager.check_deadlocks()
-
-    recovery_manager = RecoveryManager()
-    recovery_manager.write_log(1, "S")
-    recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
-    recovery_manager.apply_logs(db_handler)
-
-    transaction_manager = TransactionManager(lock_manager, recovery_manager, db_handler)
-    transaction_manager.start_transaction(1)
-    transaction_manager.submit_operation(1, "data1", "F", old_value=0, new_value=1)
-    transaction_manager.commit_transaction(1)
-    transaction_manager.start_transaction(2)
-    transaction_manager.rollback_transaction(2)
-
-    main_logger.info("Simulation successfully initialized.")
+    simulation_args = parse_arguments()
 
     # Initialize modules
-    db_handler, recovery_manager, lock_manager, transaction_manager = initialize_modules()
+    db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance = \
+        initialize_modules()
 
-    # Placeholder for further simulation logic
-    print("Modules successfully initialized.")
+    # Simulation parameters from parsed arguments
+    total_cycles = simulation_args.cycles
+    transaction_size = simulation_args.trans_size
+    start_probability = simulation_args.start_prob
+    write_probability = simulation_args.write_prob
+    rollback_probability = simulation_args.rollback_prob
+    timeout_duration = simulation_args.timeout
+
+    # Start simulation loop with updated argument names
+    simulation_loop(
+        db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance,
+        total_cycles, transaction_size, start_probability, write_probability,
+        rollback_probability, timeout_duration
+    )
+
+    main_logger.info("Simulation successfully completed.")
+    print("Modules successfully initialized and simulation completed.")
