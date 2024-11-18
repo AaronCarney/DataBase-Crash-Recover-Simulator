@@ -188,6 +188,18 @@ def simulation_loop(
     logger.info("Simulation loop complete. Final database state:")
     print(db_handler.buffer)
 
+    # Important: ensures all active transactions are committed or rolled back, releasing locks held
+    for transaction_id in list(active_transactions.keys()):
+        transaction_manager.rollback_transaction(transaction_id)
+        logger.info(f"Transaction {transaction_id} rolled back due to simulation end.")
+        del active_transactions[transaction_id]
+
+    # Ensure all locks are released
+    lock_manager.locks.clear()
+    lock_manager.lock_queue.clear()
+    lock_manager.locked_data_by_transaction.clear()
+    lock_manager.transaction_timestamps.clear()
+
 
 if __name__ == "__main__":
     # Set up logging

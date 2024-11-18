@@ -76,10 +76,25 @@ class RecoveryManager:
                     self.logger.error(f"Invalid log entry: {line.strip()}")
                     continue
 
-                if parts[1] == "F" and len(parts) == 5:
-                    data_id, old_value, new_value = map(int, parts[2:])
-                    self.db_handler.update_buffer(data_id, new_value)  # Ensure this operates on db_handler
-                    self.logger.info(f"Applied update to data_id {data_id}: {old_value} -> {new_value}")
+                operation = parts[1]
+                transaction_id = int(parts[0])
+
+                if operation == "F":
+                    if len(parts) != 5:
+                        self.logger.error(f"Malformed 'F' log entry: {parts}")
+                        continue
+                    data_id = int(parts[2])
+                    old_value = int(parts[3])
+                    new_value = int(parts[4])
+                    self.db_handler.update_buffer(data_id, new_value)
+                    self.logger.info(
+                        f"Transaction {transaction_id}: Applied 'F' log entry on data_id {data_id}: {old_value} "
+                        f"-> {new_value}")
+                else:
+                    # For 'S', 'C', 'R', we might log or process as needed
+                    self.logger.info(
+                        f"Transaction {transaction_id}: Encountered '{operation}' operation. No action taken during"
+                        f" recovery.")
 
         self.db_handler.write_database()
         self.logger.info("Database state recovered and flushed to disk.")
@@ -89,8 +104,8 @@ class RecoveryManager:
 if __name__ == "__main__":
     from db_handler import DBHandler
 
-    recovery_manager = RecoveryManager()
     db_handler = DBHandler()
+    recovery_manager = RecoveryManager(db_handler)
 
     # Simulate some logs
     recovery_manager.write_log(1, "S")

@@ -83,7 +83,8 @@ class LockManager:
         current_time = time.time()
         for transaction_id, start_time in list(self.transaction_timestamps.items()):
             if current_time - start_time > self.deadlock_timeout:
-                self.logger.warning(f"Transaction {transaction_id} has timed out and is being aborted.")
+                self.logger.warning(
+                    f"Transaction {transaction_id} detected in a deadlock. Aborting transaction to resolve.")
                 self.release_locks(transaction_id)
 
         self.logger.info("Deadlock check completed.")

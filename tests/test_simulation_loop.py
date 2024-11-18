@@ -45,15 +45,20 @@ class TestSimulationLoop(unittest.TestCase):
         Test basic consistency of database and logs after the simulation.
         This test ensures that the database file is created and transactions are correctly applied.
         """
-        # Verify that the database handler exists
-        self.assertIsNotNone(self.db_handler, "Database handler is not initialized.")
+        # Run a small simulation to generate logs and update the database
+        max_cycles = 5
+        transaction_size = 3
+        prob_start_transaction = 1.0  # Always start a transaction
+        prob_write = 1.0  # Always write
+        prob_rollback = 0.0  # No rollbacks
 
-        # Ensure the database file does not exist at the start of the test
-        if os.path.exists(self.db_handler.db_file):
-            os.remove(self.db_handler.db_file)
+        simulation_loop(
+            self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+        )
 
         # Apply the logs to restore the database
-        self.recovery_manager.apply_logs()  # Corrected reference here
+        self.recovery_manager.apply_logs()
 
         # Ensure that a database file is created
         self.db_handler.write_database()
@@ -91,9 +96,12 @@ class TestSimulationLoop(unittest.TestCase):
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
         for entry in log_entries:
-            if entry[1] == "F":  # Write operation
-                _, _, data_id, _, new_value = map(int, entry)
+            # Replace the above line with the following
+            if len(entry) == 5 and entry[1] == "F":  # Ensure proper log format
+                _, _, data_id, _, new_value = map(int, entry[2:])
                 recovered_buffer[data_id] = new_value
+            else:
+                self.recovery_manager.logger.warning(f"Skipping malformed log entry: {entry}")
 
         self.assertEqual(db_content, recovered_buffer, "Database and logs do not match after recovery.")
 
@@ -124,8 +132,9 @@ class TestSimulationLoop(unittest.TestCase):
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
         for entry in log_entries:
-            if entry[1] == "F":  # Check operation type
-                _, _, data_id, _, new_value = map(int, entry[2:])  # Skip operation field
+            if entry[1] == "F":
+                data_id = int(entry[2])
+                new_value = int(entry[4])
                 recovered_buffer[data_id] = new_value
 
         self.assertEqual(db_content, recovered_buffer, "Database and logs do not match for all-write scenario.")

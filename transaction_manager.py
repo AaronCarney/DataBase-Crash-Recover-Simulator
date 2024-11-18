@@ -36,7 +36,8 @@ class TransactionManager:
         # Attempt to acquire a lock
         lock_type = "exclusive" if operation == "F" else "shared"
         if not self.lock_manager.acquire_lock(transaction_id, data_id, lock_type):
-            self.logger.warning(f"Transaction {transaction_id} could not acquire {lock_type} lock on {data_id}.")
+            self.logger.error(f"Transaction {transaction_id} blocked. Aborting transaction.")
+            self.rollback_transaction(transaction_id)
             return False
 
         # Log and execute the operation
@@ -65,7 +66,7 @@ class TransactionManager:
         self.transactions[transaction_id]["state"] = "rolled_back"
         self.recovery_manager.write_log(transaction_id, "R")
         self.lock_manager.release_locks(transaction_id)
-        self.logger.info(f"Transaction {transaction_id} rolled back.")
+        self.logger.info(f"Transaction {transaction_id} rolled back due to invalid operation or deadlock.")
         return True
 
     def commit_transaction(self, transaction_id):
