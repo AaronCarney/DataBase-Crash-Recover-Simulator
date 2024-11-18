@@ -68,21 +68,28 @@ class RecoveryManager:
             self.logger.warning(f"Log file {self.log_file} does not exist. No logs to apply.")
             return
 
+        # Read all log entries
+        log_entries = []
         with open(self.log_file, "r") as f:
             for line in f:
                 parts = line.strip().split(",")
+                log_entries.append(parts)
 
-                if len(parts) < 2 or parts[1] not in ["S", "F", "C", "R"]:
-                    self.logger.error(f"Invalid log entry: {line.strip()}")
-                    continue
+        # Determine committed transactions
+        committed_transactions = set()
+        for parts in log_entries:
+            if len(parts) < 2:
+                continue
+            transaction_id = int(parts[0])
+            operation = parts[1]
+            if operation == "C":
+                committed_transactions.add(transaction_id)
 
-                operation = parts[1]
+        # Apply 'F' entries only for committed transactions
+        for parts in log_entries:
+            if len(parts) >= 5 and parts[1] == "F":
                 transaction_id = int(parts[0])
-
-                if operation == "F":
-                    if len(parts) != 5:
-                        self.logger.error(f"Malformed 'F' log entry: {parts}")
-                        continue
+                if transaction_id in committed_transactions:
                     data_id = int(parts[2])
                     old_value = int(parts[3])
                     new_value = int(parts[4])
@@ -91,10 +98,8 @@ class RecoveryManager:
                         f"Transaction {transaction_id}: Applied 'F' log entry on data_id {data_id}: {old_value} "
                         f"-> {new_value}")
                 else:
-                    # For 'S', 'C', 'R', we might log or process as needed
                     self.logger.info(
-                        f"Transaction {transaction_id}: Encountered '{operation}' operation. No action taken during"
-                        f" recovery.")
+                        f"Transaction {transaction_id}: 'F' log entry skipped (transaction not committed).")
 
         self.db_handler.write_database()
         self.logger.info("Database state recovered and flushed to disk.")

@@ -142,11 +142,24 @@ class TestSimulationLoop(unittest.TestCase):
 
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
+
+        # Determine committed transactions
+        committed_transactions = set()
         for entry in log_entries:
-            if entry[1] == "F":
-                data_id = int(entry[2])
-                new_value = int(entry[4])
-                recovered_buffer[data_id] = new_value
+            if len(entry) >= 2:
+                transaction_id = int(entry[0])
+                operation = entry[1]
+                if operation == "C":
+                    committed_transactions.add(transaction_id)
+
+        # Apply 'F' entries for committed transactions
+        for entry in log_entries:
+            if len(entry) >= 5 and entry[1] == "F":
+                transaction_id = int(entry[0])
+                if transaction_id in committed_transactions:
+                    data_id = int(entry[2])
+                    new_value = int(entry[4])
+                    recovered_buffer[data_id] = new_value
 
         self.assertEqual(db_content, recovered_buffer, "Database and logs do not match for all-write scenario.")
 

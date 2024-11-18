@@ -108,17 +108,6 @@ def simulation_loop(
 ):
     """
     Run the simulation loop for managing transactions, locks, and recovery.
-
-    Args:
-        db_handler: Instance of the DBHandler class.
-        recovery_manager: Instance of the RecoveryManager class.
-        lock_manager: Instance of the LockManager class.
-        transaction_manager: Instance of the TransactionManager class.
-        max_cycles: Total number of cycles for the simulation.
-        max_transaction_size: Maximum operations per transaction.
-        prob_start_transaction: Probability of starting a new transaction.
-        prob_write: Probability that an operation is Write.
-        prob_rollback: Probability that an operation is a rollback.
     """
     logger = get_logger("SimulationLoop")
     logger.info("Starting simulation loop...")
@@ -186,7 +175,6 @@ def simulation_loop(
         sleep(0.1)  # Simulate delay
 
     logger.info("Simulation loop complete. Final database state:")
-    print(db_handler.buffer)
 
     # Important: ensures all active transactions are committed or rolled back, releasing locks held
     for transaction_id in list(active_transactions.keys()):

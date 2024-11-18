@@ -30,6 +30,7 @@ class TestRecoveryManager(unittest.TestCase):
 
     def test_recovery_replay(self):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
+        self.recovery_manager.write_log(1, "C")  # Add commit entry
         self.recovery_manager.apply_logs()  # Apply logs to simulate recovery
         self.assertEqual(self.db_handler.buffer[0], 1)
 
@@ -37,10 +38,10 @@ class TestRecoveryManager(unittest.TestCase):
         """
         Verify database state consistency after applying recovery logs.
         """
-        self.db_handler = DBHandler()  # Initialize the DBHandler instance for use in this test
-        self.recovery_manager = RecoveryManager(self.db_handler)
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
+        self.recovery_manager.write_log(1, "C")  # Add commit entry
         self.recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
+        self.recovery_manager.write_log(2, "C")  # Add commit entry
         self.db_handler.read_database()
         self.recovery_manager.apply_logs()
         self.assertEqual(self.db_handler.buffer[0], 1, "Log replay did not update buffer[0].")
@@ -48,6 +49,7 @@ class TestRecoveryManager(unittest.TestCase):
 
     def test_apply_logs_with_valid_data(self):
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
+        self.recovery_manager.write_log(1, "C")  # Add commit entry
         self.recovery_manager.apply_logs()
         self.assertEqual(self.db_handler.buffer[0], 1)
 
