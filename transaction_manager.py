@@ -15,12 +15,12 @@ class TransactionManager:
         if transaction_id in self.transactions:
             self.logger.warning(f"Transaction {transaction_id} already exists.")
             return False
-        self.transactions[transaction_id] = {"state": "active", "operations": []}
-        self.recovery_manager.write_log(transaction_id, "S")
+        self.transactions[transaction_id] = {"state": "active", "operations": [], "blocked": False}
+        self.recovery_manager.write_log(transaction_id, operation="S")
         self.logger.info(f"Transaction {transaction_id} started.")
         return True
 
-    def submit_operation(self, transaction_id, data_id, operation, old_value=None, new_value=None):
+    def submit_operation(self, transaction_id, data_id, operation):
         """
         Submit an operation for a transaction.
         - operation: 'F' for write.
@@ -33,22 +33,29 @@ class TransactionManager:
             self.logger.warning(f"Transaction {transaction_id} is not active.")
             return False
 
+        if self.transactions[transaction_id]["blocked"]:
+            self.logger.info(f"Transaction {transaction_id} is blocked.")
+            return False
+
         # Attempt to acquire a lock
         lock_type = "exclusive" if operation == "F" else "shared"
         if not self.lock_manager.acquire_lock(transaction_id, data_id, lock_type):
-            self.logger.error(f"Transaction {transaction_id} blocked. Aborting transaction.")
-            self.rollback_transaction(transaction_id)
+            self.logger.info(f"Transaction {transaction_id} is blocked waiting for lock on {data_id}.")
+            self.transactions[transaction_id]["blocked"] = True
             return False
 
         # Log and execute the operation
         if operation == "F":
             old_value = self.db_handler.buffer[data_id]
+            # Toggle the value for simplicity
+            new_value = 1 if old_value == 0 else 0
             self.db_handler.buffer[data_id] = new_value
-            self.recovery_manager.write_log(transaction_id, "F", data_id, old_value, new_value)
+            self.recovery_manager.write_log(transaction_id, data_id=data_id, old_value=old_value, operation="F")
             self.logger.info(f"Transaction {transaction_id} performed write on {data_id}: {old_value} -> {new_value}.")
 
-        # Record operation in transaction
-        self.transactions[transaction_id]["operations"].append((data_id, operation, old_value, new_value))
+            # Record operation in transaction
+            self.transactions[transaction_id]["operations"].append((data_id, operation, old_value, new_value))
+
         return True
 
     def rollback_transaction(self, transaction_id):
@@ -64,9 +71,9 @@ class TransactionManager:
                 self.logger.info(f"Rolled back write on {data_id}: {new_value} -> {old_value}.")
 
         self.transactions[transaction_id]["state"] = "rolled_back"
-        self.recovery_manager.write_log(transaction_id, "R")
+        self.recovery_manager.write_log(transaction_id, operation="R")
         self.lock_manager.release_locks(transaction_id)
-        self.logger.info(f"Transaction {transaction_id} rolled back due to invalid operation or deadlock.")
+        self.logger.info(f"Transaction {transaction_id} rolled back.")
         return True
 
     def commit_transaction(self, transaction_id):
@@ -76,7 +83,22 @@ class TransactionManager:
             return False
 
         self.transactions[transaction_id]["state"] = "committed"
-        self.recovery_manager.write_log(transaction_id, "C")
+        self.recovery_manager.write_log(transaction_id, operation="C")
         self.lock_manager.release_locks(transaction_id)
         self.logger.info(f"Transaction {transaction_id} committed.")
         return True
+
+    def unblock_transactions(self):
+        """
+        Attempt to unblock transactions if their locks can now be acquired.
+        """
+        for transaction_id in self.transactions:
+            if self.transactions[transaction_id]["blocked"] and self.transactions[transaction_id]["state"] == "active":
+                pending_ops = self.transactions[transaction_id]["operations"]
+                if pending_ops:
+                    last_op = pending_ops[-1]
+                    data_id = last_op[0]
+                    lock_type = "exclusive" if last_op[1] == "F" else "shared"
+                    if self.lock_manager.acquire_lock(transaction_id, data_id, lock_type):
+                        self.transactions[transaction_id]["blocked"] = False
+                        self.logger.info(f"Transaction {transaction_id} is unblocked.")

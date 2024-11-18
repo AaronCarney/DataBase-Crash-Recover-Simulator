@@ -5,7 +5,8 @@ from db_handler import DBHandler
 
 class TestDBHandler(unittest.TestCase):
     def setUp(self):
-        self.db_handler = DBHandler()
+        self.db_file = "test_db"
+        self.db_handler = DBHandler(db_file=self.db_file)
         # Ensure a clean slate for the database file
         if os.path.exists(self.db_handler.db_file):
             os.remove(self.db_handler.db_file)
@@ -43,5 +44,6 @@ class TestDBHandler(unittest.TestCase):
             content = f.readline().strip()
         self.assertEqual(content, "1," + ",".join(["0"] * 31))
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

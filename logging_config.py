@@ -15,5 +15,6 @@ def setup_logging(log_file="adbsim.log"):
 
 def get_logger(name):
     logger = logging.getLogger(name)
-    logger.addHandler(logging.NullHandler())  # Ensure handlers exist
+    if not logger.handlers:
+        logger.addHandler(logging.NullHandler())  # Ensure handlers exist
     return logger

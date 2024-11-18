@@ -9,7 +9,7 @@ from time import sleep
 from typing import Tuple
 
 
-def initialize_modules() -> Tuple[DBHandler, RecoveryManager, LockManager, TransactionManager]:
+def initialize_modules(timeout_cycles) -> Tuple[DBHandler, RecoveryManager, LockManager, TransactionManager]:
     """
     Initialize the database, logs, and all necessary modules for the simulation.
     Returns:
@@ -33,7 +33,7 @@ def initialize_modules() -> Tuple[DBHandler, RecoveryManager, LockManager, Trans
     logger.info("Recovery manager initialized and logs applied.")
 
     # Initialize the lock manager
-    lock_mgr = LockManager()
+    lock_mgr = LockManager(timeout_cycles)
     logger.info("Lock manager initialized.")
 
     # Initialize the transaction manager
@@ -47,10 +47,16 @@ def initialize_modules() -> Tuple[DBHandler, RecoveryManager, LockManager, Trans
 def parse_arguments():
     """
     Parse command-line arguments for the simulation.
+    Returns:
+        Namespace containing all validated parameters.
     """
+    parser_logger = get_logger("ArgumentParser")  # Use a distinct name for the logger
+
     parser = argparse.ArgumentParser(
         description="Simulate recovery and locking with strict 2PL and WAL."
     )
+
+    # Define arguments
     parser.add_argument(
         "cycles", type=int,
         help="Maximum number of cycles for the simulation (integer > 0)."
@@ -75,12 +81,9 @@ def parse_arguments():
         "timeout", type=int,
         help="Timeout in cycles for transactions waiting for resources (integer >= 0)."
     )
-    parser.add_argument(
-        "prob_crash", type=float,
-        help="Probability of a random crash per cycle (0 <= value <= 1)."
-    )
 
-    parsed_args = parser.parse_args()
+    # Parse the arguments
+    parsed_args = parser.parse_args()  # Use a distinct name for the parsed arguments
 
     # Validate probabilities
     if not (0 <= parsed_args.start_prob <= 1):
@@ -89,10 +92,11 @@ def parse_arguments():
         parser.error("write_prob must be between 0 and 1.")
     if not (0 <= parsed_args.rollback_prob <= 1):
         parser.error("rollback_prob must be between 0 and 1.")
-    if not (0 <= parsed_args.prob_crash <= 1):
-        parser.error("prob_crash must be between 0 and 1.")
     if parsed_args.write_prob + parsed_args.rollback_prob > 1:
         parser.error("write_prob + rollback_prob must not exceed 1.")
+
+    # Log the parsed arguments
+    parser_logger.info(f"Parsed arguments: {vars(parsed_args)}")
 
     return parsed_args
 
@@ -100,7 +104,7 @@ def parse_arguments():
 def simulation_loop(
         db_handler, recovery_manager, lock_manager, transaction_manager,
         max_cycles, max_transaction_size, prob_start_transaction, prob_write,
-        prob_rollback, prob_crash
+        prob_rollback
 ):
     """
     Run the simulation loop for managing transactions, locks, and recovery.
@@ -110,38 +114,28 @@ def simulation_loop(
 
     active_transactions = {}
     current_cycle = 0
+    transaction_counter = 0  # To assign unique transaction IDs
 
     while current_cycle < max_cycles:
         logger.info(f"Cycle {current_cycle + 1} begins.")
 
-        # Random crash simulation
-        if random.random() <= prob_crash:
-            logger.error(f"Simulated crash occurred at cycle {current_cycle + 1}.")
-            print(f"Simulated crash at cycle {current_cycle + 1}. Final database state: ")
-            # print(db_handler.buffer)
-
-            # Flush logs and database before crash
-            recovery_manager.flush_logs()
-            db_handler.write_database()
-
-            # Terminate simulation
-            break
-
         # Start a new transaction based on prob_start_transaction
         if random.random() <= prob_start_transaction:
-            transaction_id = len(transaction_manager.transactions) + 1
+            transaction_counter += 1
+            transaction_id = transaction_counter
             transaction_manager.start_transaction(transaction_id)
             active_transactions[transaction_id] = {
                 "operations_count": 0,
                 "is_blocked": False,
-                "start_time": current_cycle
+                "start_cycle": current_cycle,
+                "waiting_cycles": 0
             }
             logger.info(f"Started transaction {transaction_id}.")
 
         # Process active transactions
         for transaction_id in list(active_transactions.keys()):
             transaction_data = active_transactions[transaction_id]
-            if transaction_data["is_blocked"]:
+            if transaction_manager.transactions[transaction_id]["blocked"]:
                 logger.debug(f"Transaction {transaction_id} is blocked, skipping.")
                 continue
 
@@ -151,11 +145,13 @@ def simulation_loop(
                 del active_transactions[transaction_id]
                 continue
 
-            operation_type = (
-                "rollback" if random.random() <= prob_rollback
-                else "write" if random.random() <= prob_write
-                else "noop"
-            )
+            rand_value = random.random()
+            if rand_value <= prob_rollback:
+                operation_type = "rollback"
+            elif rand_value <= prob_rollback + prob_write:
+                operation_type = "write"
+            else:
+                operation_type = "noop"
 
             if operation_type == "rollback":
                 transaction_manager.rollback_transaction(transaction_id)
@@ -163,14 +159,20 @@ def simulation_loop(
                 del active_transactions[transaction_id]
             elif operation_type == "write":
                 data_id = random.randint(0, 31)
-                old_value = db_handler.buffer[data_id]
-                new_value = 1 if old_value == 0 else 0
-                success = transaction_manager.submit_operation(transaction_id, data_id, "F", old_value, new_value)
+                success = transaction_manager.submit_operation(transaction_id, data_id, "F")
                 if success:
                     transaction_data["operations_count"] += 1
                     logger.info(f"Transaction {transaction_id} wrote to data {data_id}.")
                 else:
                     transaction_data["is_blocked"] = True
+            else:
+                logger.info(f"Transaction {transaction_id} performed no operation.")
+
+        # Unblock transactions if possible
+        transaction_manager.unblock_transactions()
+
+        # Increment cycle in lock manager for deadlock detection
+        lock_manager.increment_cycle()
 
         # Resolve deadlocks with lock_timeout
         lock_manager.check_deadlocks()
@@ -184,25 +186,17 @@ def simulation_loop(
         current_cycle += 1
         sleep(0.1)  # Simulate delay
 
-    logger.info("Simulation loop complete. Final database state:")
-    # Comment out the print statement to avoid output during tests
-    # print(db_handler.buffer)
+    logger.info("Simulation loop complete.")
 
-    # Rollback only active and uncommitted transactions
-    for transaction_id in list(active_transactions.keys()):
-        transaction_manager.rollback_transaction(transaction_id)
-        logger.info(f"Transaction {transaction_id} rolled back due to simulation end.")
-        del active_transactions[transaction_id]
+    # Output the current state of the database
+    print("Final database state:", db_handler.buffer)
 
-    # Ensure all locks are released
-    lock_manager.locks.clear()
-    lock_manager.lock_queue.clear()
-    lock_manager.locked_data_by_transaction.clear()
-    lock_manager.transaction_timestamps.clear()
+    # Since the system crashes here, we should not write any more to the log or database
+    # Do not flush logs or write database
+    # Do not release locks or update any files after crash
+    # The final database state is printed above
 
-    # Flush any remaining logs and write database to disk
-    recovery_manager.flush_logs()
-    db_handler.write_database()
+    logger.info("Simulation ended due to reaching maximum cycles (simulated crash).")
 
 
 if __name__ == "__main__":
@@ -231,7 +225,7 @@ if __name__ == "__main__":
     simulation_loop(
         db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance,
         total_cycles, transaction_size, start_probability, write_probability,
-        rollback_probability, crash_probability
+        rollback_probability
     )
 
     main_logger.info("Simulation successfully completed.")

@@ -3,7 +3,7 @@ import os
 
 
 class DBHandler:
-    def __init__(self, db_file="db.txt"):
+    def __init__(self, db_file="db"):
         """
         Initialize the DBHandler.
         - db_file: Name of the file to store the database.
