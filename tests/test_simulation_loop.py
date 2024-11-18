@@ -28,7 +28,7 @@ class TestSimulationLoop(unittest.TestCase):
             f.write("0," * 31 + "0\n")  # Initialize database with 32 bits all set to 0
 
         # Initialize RecoveryManager with the DBHandler instance
-        self.recovery_manager = RecoveryManager(self.db_handler)
+        self.recovery_manager = RecoveryManager(self.db_handler, self.log_file)
 
         # Initialize LockManager
         self.lock_manager = LockManager()
@@ -57,11 +57,14 @@ class TestSimulationLoop(unittest.TestCase):
             max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
         )
 
+        # Flush remaining logs and write database to disk
+        self.recovery_manager.flush_logs()
+        self.db_handler.write_database()
+
         # Apply the logs to restore the database
         self.recovery_manager.apply_logs()
 
         # Ensure that a database file is created
-        self.db_handler.write_database()
         self.assertTrue(os.path.exists(self.db_handler.db_file), "Database file not created.")
 
         # Verify the content of the database
@@ -83,9 +86,13 @@ class TestSimulationLoop(unittest.TestCase):
             max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
         )
 
+        # Flush remaining logs and write database to disk
+        self.recovery_manager.flush_logs()
+        self.db_handler.write_database()
+
         # Simulate crash by re-initializing modules
         self.db_handler = DBHandler(self.db_file)
-        self.recovery_manager = RecoveryManager(self.log_file)
+        self.recovery_manager = RecoveryManager(self.db_handler, self.log_file)
         self.db_handler.read_database()
         self.recovery_manager.apply_logs()
 
@@ -96,9 +103,9 @@ class TestSimulationLoop(unittest.TestCase):
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
         for entry in log_entries:
-            # Replace the above line with the following
-            if len(entry) == 5 and entry[1] == "F":  # Ensure proper log format
-                _, _, data_id, _, new_value = map(int, entry[2:])
+            if len(entry) >= 5 and entry[1] == "F":  # Ensure proper log format
+                data_id = int(entry[2])
+                new_value = int(entry[4])
                 recovered_buffer[data_id] = new_value
             else:
                 self.recovery_manager.logger.warning(f"Skipping malformed log entry: {entry}")
@@ -125,6 +132,10 @@ class TestSimulationLoop(unittest.TestCase):
             max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
         )
 
+        # Flush remaining logs and write database to disk
+        self.recovery_manager.flush_logs()
+        self.db_handler.write_database()
+
         # Validate database consistency
         with open(self.db_file, "r") as db_file:
             db_content = list(map(int, db_file.readline().strip().split(",")))
@@ -149,6 +160,10 @@ class TestSimulationLoop(unittest.TestCase):
             max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
         )
 
+        # Flush remaining logs and write database to disk
+        self.recovery_manager.flush_logs()
+        self.db_handler.write_database()
+
         # Ensure no database changes occurred
         with open(self.db_file, "r") as db_file:
             db_content_after = list(map(int, db_file.readline().strip().split(",")))
@@ -166,6 +181,10 @@ class TestSimulationLoop(unittest.TestCase):
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
             max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
         )
+
+        # Flush remaining logs and write database to disk
+        self.recovery_manager.flush_logs()
+        self.db_handler.write_database()
 
         # Validate no lingering locks
         self.assertEqual(len(self.lock_manager.locks), 0, "All locks should be released after simulation.")

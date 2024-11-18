@@ -98,23 +98,3 @@ class RecoveryManager:
 
         self.db_handler.write_database()
         self.logger.info("Database state recovered and flushed to disk.")
-
-
-# Example usage
-if __name__ == "__main__":
-    from db_handler import DBHandler
-
-    db_handler = DBHandler()
-    recovery_manager = RecoveryManager(db_handler)
-
-    # Simulate some logs
-    recovery_manager.write_log(1, "S")
-    recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
-    recovery_manager.write_log(1, "C")
-    recovery_manager.write_log(2, "S")
-    recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
-    recovery_manager.write_log(2, "R")
-
-    # Recover database state
-    db_handler.read_database()
-    recovery_manager.apply_logs()

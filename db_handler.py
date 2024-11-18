@@ -1,6 +1,7 @@
 from logging_config import get_logger
 import os
 
+
 class DBHandler:
     def __init__(self, db_file="db.txt"):
         """

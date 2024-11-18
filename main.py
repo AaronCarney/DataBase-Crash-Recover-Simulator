@@ -200,6 +200,10 @@ def simulation_loop(
     lock_manager.locked_data_by_transaction.clear()
     lock_manager.transaction_timestamps.clear()
 
+    # Flush any remaining logs and write database to disk
+    recovery_manager.flush_logs()
+    db_handler.write_database()
+
 
 if __name__ == "__main__":
     # Set up logging

@@ -38,6 +38,7 @@ class TestRecoveryManager(unittest.TestCase):
         Verify database state consistency after applying recovery logs.
         """
         self.db_handler = DBHandler()  # Initialize the DBHandler instance for use in this test
+        self.recovery_manager = RecoveryManager(self.db_handler)
         self.recovery_manager.write_log(1, "F", data_id=0, old_value=0, new_value=1)
         self.recovery_manager.write_log(2, "F", data_id=1, old_value=0, new_value=1)
         self.db_handler.read_database()
