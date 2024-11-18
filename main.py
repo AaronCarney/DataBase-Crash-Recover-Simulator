@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     # Initialize modules
     db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance = \
-        initialize_modules()
+        initialize_modules(simulation_args.timeout)
 
     # Simulation parameters from parsed arguments
     total_cycles = simulation_args.cycles
@@ -218,14 +218,11 @@ if __name__ == "__main__":
     start_probability = simulation_args.start_prob
     write_probability = simulation_args.write_prob
     rollback_probability = simulation_args.rollback_prob
-    crash_probability = simulation_args.prob_crash
 
-    # Start simulation loop with updated argument names
-    # Start simulation loop with updated argument names
+    # Start the simulation loop
     simulation_loop(
         db_handler_instance, recovery_manager_instance, lock_manager_instance, transaction_manager_instance,
-        total_cycles, transaction_size, start_probability, write_probability,
-        rollback_probability
+        total_cycles, transaction_size, start_probability, write_probability, rollback_probability
     )
 
     main_logger.info("Simulation successfully completed.")
