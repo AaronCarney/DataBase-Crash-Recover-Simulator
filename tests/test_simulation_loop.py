@@ -54,7 +54,7 @@ class TestSimulationLoop(unittest.TestCase):
 
         simulation_loop(
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
-            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash=0.0
         )
 
         # Flush remaining logs and write database to disk
@@ -83,7 +83,7 @@ class TestSimulationLoop(unittest.TestCase):
 
         simulation_loop(
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
-            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash=0.0
         )
 
         # Flush remaining logs and write database to disk
@@ -102,13 +102,24 @@ class TestSimulationLoop(unittest.TestCase):
 
         log_entries = self.recovery_manager.read_log()
         recovered_buffer = [0] * 32
+
+        # Determine committed transactions
+        committed_transactions = set()
         for entry in log_entries:
-            if len(entry) >= 5 and entry[1] == "F":  # Ensure proper log format
-                data_id = int(entry[2])
-                new_value = int(entry[4])
-                recovered_buffer[data_id] = new_value
-            else:
-                self.recovery_manager.logger.warning(f"Skipping malformed log entry: {entry}")
+            if len(entry) >= 2:
+                transaction_id = int(entry[0])
+                operation = entry[1]
+                if operation == "C":
+                    committed_transactions.add(transaction_id)
+
+        # Apply 'F' entries for committed transactions
+        for entry in log_entries:
+            if len(entry) >= 5 and entry[1] == "F":
+                transaction_id = int(entry[0])
+                if transaction_id in committed_transactions:
+                    data_id = int(entry[2])
+                    new_value = int(entry[4])
+                    recovered_buffer[data_id] = new_value
 
         self.assertEqual(db_content, recovered_buffer, "Database and logs do not match after recovery.")
 
@@ -129,7 +140,7 @@ class TestSimulationLoop(unittest.TestCase):
 
         simulation_loop(
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
-            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash=0.0
         )
 
         # Flush remaining logs and write database to disk
@@ -170,7 +181,7 @@ class TestSimulationLoop(unittest.TestCase):
 
         simulation_loop(
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
-            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash=0.0
         )
 
         # Flush remaining logs and write database to disk
@@ -192,7 +203,7 @@ class TestSimulationLoop(unittest.TestCase):
 
         simulation_loop(
             self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
-            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash=0.0
         )
 
         # Flush remaining logs and write database to disk
@@ -205,6 +216,48 @@ class TestSimulationLoop(unittest.TestCase):
         # Validate fairness (no transaction monopolizes resources)
         lock_distribution = [len(trans) for trans in self.lock_manager.locked_data_by_transaction.values()]
         self.assertTrue(all(count <= 1 for count in lock_distribution), "Locks should be fairly distributed.")
+
+    def test_random_crash(self):
+        """
+        Test that a random crash occurs with the specified probability.
+        """
+        # High crash probability ensures a crash occurs
+        prob_crash = 1.0
+        max_cycles = 50
+        transaction_size = 5
+        prob_start_transaction = 0.8
+        prob_write = 0.7
+        prob_rollback = 0.2
+
+        with self.assertLogs("SimulationLoop", level="ERROR") as log:
+            simulation_loop(
+                self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
+                max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash
+            )
+
+            # Check logs for crash
+            self.assertTrue(any("Simulated crash occurred" in message for message in log.output))
+
+    def test_no_crash(self):
+        """
+        Test that no crash occurs when prob_crash is 0.0.
+        """
+        prob_crash = 0.0
+        max_cycles = 50
+        transaction_size = 5
+        prob_start_transaction = 0.8
+        prob_write = 0.7
+        prob_rollback = 0.2
+
+        simulation_loop(
+            self.db_handler, self.recovery_manager, self.lock_manager, self.transaction_manager,
+            max_cycles, transaction_size, prob_start_transaction, prob_write, prob_rollback, prob_crash
+        )
+
+        # Validate the database file exists and is consistent
+        with open(self.db_file, "r") as db_file:
+            db_content = list(map(int, db_file.readline().strip().split(",")))
+            self.assertEqual(len(db_content), 32, "Database size should remain consistent.")
 
 
 if __name__ == "__main__":
